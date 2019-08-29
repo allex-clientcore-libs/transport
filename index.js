@@ -60,6 +60,9 @@ function createTransportFactory(lib, TalkerFactory) {
   function SocketSlot(address, port, defer) {
     this.address = address;
     this.port = port;
+    this.onConnectedBound = this.onConnected.bind(this);
+    this.onErrorBound = this.onError.bind(this);
+    this.onClosedBound = this.onClosed.bind(this);
     this.defer = defer;
     this.socket = null;
     this.connect();
@@ -67,8 +70,12 @@ function createTransportFactory(lib, TalkerFactory) {
     TalkerSlot.call(this);
   }
   SocketSlot.prototype.destroy = function () {
+    this.talker = null;
     this.socket = null;
     this.defer = null;
+    this.onClosedBound = null;
+    this.onErrorBound = null;
+    this.onConnectedBound = null;
     this.port = null;
     this.address = null;
     TalkerSlot.prototype.destroy.call(this);
@@ -108,15 +115,16 @@ function createTransportFactory(lib, TalkerFactory) {
       return;
     }
     this.socket = new net.Socket();
-    this.socket.on('connect',this.onConnected.bind(this));
-    this.socket.on('error',this.onDisconnected.bind(this));
+    this.socket.on('connect',this.onConnectedBound);
+    this.socket.on('error',this.onErrorBound);
+    this.socket.on('close', this.onClosedBound);
     if(this.port){
       this.socket.connect(this.port,this.address);
     }else{
       this.socket.connect(this.address);
     }
   };
-  SocketSlot.prototype.onDisconnected = function(error){
+  SocketSlot.prototype.onError = function(error){
     if(this.socket){
       this.socket.removeAllListeners();
     }
@@ -133,15 +141,33 @@ function createTransportFactory(lib, TalkerFactory) {
         break;
     }
   };
+  SocketSlot.prototype.onClosed = function () {
+    if (this.socket) {
+      this.socket.removeListener('close', this.onClosedBound);
+    }
+    this.destroy();
+  };
   SocketSlot.prototype.onConnected = function(socket){
     if (!this.socket) {
       //wut?
       console.error('no socket?');
       return;
     }
-    this.socket.removeAllListeners();
+    this.socket.removeListener('connect', this.onConnectedBound);
+    this.socket.removeListener('error', this.onErrorBound);
     this.resolve();
   };
+
+  function talkerchecker (type, address, port, talker) {
+    var _t = type, _a = address, _p = port;
+    type = null;
+    address = null;
+    port = null;
+    if (!(talker && talker.isUsable())) {
+      return factory(_t, _a, _p);
+    }
+    return talker;
+  }
 
   function factory(type) {
     var slot, connectionstring, address, port, defer;
@@ -157,7 +183,9 @@ function createTransportFactory(lib, TalkerFactory) {
         var slot = socketTalkers.get(connectionstring);
         if (slot) {
           if (slot.defer) {
-            return slot.defer.promise;
+            return slot.defer.promise.then(
+              talkerchecker.bind(null, type, address, port)
+            );
           } else {
             socketTalkers.remove(connectionstring);
           }

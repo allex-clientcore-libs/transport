@@ -5,6 +5,7 @@ function createTransportFactory(lib, TalkerFactory) {
 
   var q = lib.q,
     talkerFactory = new TalkerFactory(),
+    httpTalkers = new lib.Map(),
     wsTalkers = new lib.Map(),
     socketTalkers = new lib.Map();
 
@@ -29,6 +30,29 @@ function createTransportFactory(lib, TalkerFactory) {
   }
   TalkerSlot.prototype.getMap = lib.dummyFunc;
   TalkerSlot.prototype.getName = lib.dummyFunc;
+
+  function HttpTalkerSlot(connectionstring, address, port, defer) {
+    if (!connectionstring) {
+      throw new lib.Error('NO_WS_CONNECTION_STRING');
+    }
+    this.connectionstring = connectionstring;
+    this.defer = defer;
+    TalkerSlot.call(this);
+    this.talker = talkerFactory.newHttpTalker(connectionstring, address, port, defer);
+    this.talker.aboutToDie.attach(this.destroy.bind(this));
+  }
+  HttpTalkerSlot.prototype.destroy = function () {
+    TalkerSlot.prototype.destroy.call(this);
+    this.talker = null;
+    this.defer = null;
+    this.connectionstring = null;
+  };
+  HttpTalkerSlot.prototype.getMap = function () {
+    return httpTalkers;
+  };
+  HttpTalkerSlot.prototype.getName = function () {
+    return this.connectionstring;
+  };
 
   function WSTalkerSlot(connectionstring, address, port, defer) {
     if (!connectionstring) {
@@ -192,6 +216,17 @@ function createTransportFactory(lib, TalkerFactory) {
         }
         defer = q.defer();
         slot = new SocketSlot(address, port, defer);
+        return slot.defer.promise;
+      case 'http':
+        connectionstring = arguments[1];
+        address = arguments[2];
+        port = arguments[3];
+        slot = httpTalkers.get(connectionstring);
+        defer = q.defer();
+        if (slot) {
+          return slot.defer.promise;
+        }
+        slot = new HttpTalkerSlot(connectionstring, address, port, defer);
         return slot.defer.promise;
       case 'ws':
         /*

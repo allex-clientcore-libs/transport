@@ -242,9 +242,11 @@ function createTransportFactory(lib, TalkerFactory) {
         }
         slot = new WSTalkerSlot(connectionstring, address, port, defer);
         return slot.defer.promise;
-      case 'proc':
-        return talkerFactory.newProcessTalker(arguments[1], arguments[2]);
-    }
+        case 'proc':
+          return talkerFactory.newProcessTalker(arguments[1], arguments[2]);
+        case 'externalproc':
+          return talkerFactory.newExternalProcessTalker(arguments[1], arguments[2]);
+        }
   }
 
   require('./errors')(lib);

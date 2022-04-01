@@ -9,13 +9,20 @@ function createTransportFactory(lib, TalkerFactory) {
     wsTalkers = new lib.Map(),
     socketTalkers = new lib.Map();
 
+  var _factoryOn = true;
+
   if ('undefined' === typeof window) {
+    process.on('SIGTERM', destroyAllTalkers);
+    process.on('SIGINT', destroyAllTalkers);
     process.on('exit', destroyAllTalkers);
   } else {
     window.onclose = destroyAllTalkers;
   }
 
   function destroyAllTalkers() {
+    _factoryOn = false;
+    lib.containerDestroyAll(httpTalkers);
+    httpTalkers.destroy();
     lib.containerDestroyAll(socketTalkers);
     socketTalkers.destroy();
     lib.containerDestroyAll(wsTalkers);
@@ -43,6 +50,9 @@ function createTransportFactory(lib, TalkerFactory) {
   }
   HttpTalkerSlot.prototype.destroy = function () {
     TalkerSlot.prototype.destroy.call(this);
+    if (this.talker) {
+      this.talker.destroy();
+    }
     this.talker = null;
     this.defer = null;
     this.connectionstring = null;
@@ -195,6 +205,9 @@ function createTransportFactory(lib, TalkerFactory) {
 
   function factory(type) {
     var slot, connectionstring, address, port, defer;
+    if (!_factoryOn) {
+      return q(null);
+    }
     switch(type) {
       case 'inproc':
         return talkerFactory.newInProcTalker(arguments[1]);

@@ -19,14 +19,16 @@ function createTransportFactory(lib, TalkerFactory) {
     window.onclose = destroyAllTalkers;
   }
 
-  function destroyAllTalkers() {
+  function destroyAllTalkers(signal) {
+    var err;
     _factoryOn = false;
-    lib.containerDestroyAll(httpTalkers);
-    httpTalkers.destroy();
-    lib.containerDestroyAll(socketTalkers);
-    socketTalkers.destroy();
-    lib.containerDestroyAll(wsTalkers);
-    wsTalkers.destroy();
+    err = new lib.Error(lib.isString(signal) ? signal : 'TIME_TO_TERMINATE_TALKING');
+    lib.containerDestroyAll(httpTalkers, err);
+    httpTalkers.destroy(err);
+    lib.containerDestroyAll(socketTalkers, err);
+    socketTalkers.destroy(err);
+    lib.containerDestroyAll(wsTalkers, err);
+    wsTalkers.destroy(err);
   }
 
   function TalkerSlot() {
@@ -48,10 +50,10 @@ function createTransportFactory(lib, TalkerFactory) {
     this.talker = talkerFactory.newHttpTalker(connectionstring, address, port, defer);
     this.talker.aboutToDie.attach(this.destroy.bind(this));
   }
-  HttpTalkerSlot.prototype.destroy = function () {
-    TalkerSlot.prototype.destroy.call(this);
+  HttpTalkerSlot.prototype.destroy = function (exception) {
+    TalkerSlot.prototype.destroy.call(this, exception);
     if (this.talker) {
-      this.talker.destroy();
+      this.talker.destroy(exception);
     }
     this.talker = null;
     this.defer = null;
@@ -75,13 +77,13 @@ function createTransportFactory(lib, TalkerFactory) {
     this.talker = talkerFactory.newWSTalker(connectionstring, address, port, defer);
     this.talker.aboutToDie.attach(this.destroy.bind(this));
   }
-  WSTalkerSlot.prototype.destroy = function () {
+  WSTalkerSlot.prototype.destroy = function (exception) {
     if (!this.connectionstring) {
       return;
     }
     this.talker = null;
     this.defer = null;
-    TalkerSlot.prototype.destroy.call(this);
+    TalkerSlot.prototype.destroy.call(this, exception);
     this.connectionstring = null;
   };
   WSTalkerSlot.prototype.getMap = function () {
@@ -103,7 +105,7 @@ function createTransportFactory(lib, TalkerFactory) {
     this.talker = null;
     TalkerSlot.call(this);
   }
-  SocketSlot.prototype.destroy = function () {
+  SocketSlot.prototype.destroy = function (exception) {
     this.talker = null;
     this.socket = null;
     this.defer = null;
@@ -112,7 +114,7 @@ function createTransportFactory(lib, TalkerFactory) {
     this.onConnectedBound = null;
     this.port = null;
     this.address = null;
-    TalkerSlot.prototype.destroy.call(this);
+    TalkerSlot.prototype.destroy.call(this, exception);
   };
   SocketSlot.prototype.getMap = function () {
     return socketTalkers;

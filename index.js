@@ -48,7 +48,7 @@ function createTransportFactory(lib, TalkerFactory) {
     this.defer = defer;
     TalkerSlot.call(this);
     this.talker = talkerFactory.newHttpTalker(connectionstring, address, port, defer);
-    this.talker.aboutToDie.attach(this.destroy.bind(this));
+    this.talker.aboutToDie.attach(this.onTalkerAboutToDie.bind(this));
   }
   HttpTalkerSlot.prototype.destroy = function (exception) {
     TalkerSlot.prototype.destroy.call(this, exception);
@@ -58,6 +58,9 @@ function createTransportFactory(lib, TalkerFactory) {
     this.talker = null;
     this.defer = null;
     this.connectionstring = null;
+  };
+  HttpTalkerSlot.prototype.onTalkerAboutToDie = function (talker) {
+    this.destroy(talker.initialException);
   };
   HttpTalkerSlot.prototype.getMap = function () {
     return httpTalkers;

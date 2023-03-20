@@ -1,8 +1,11 @@
 function createNoServerError(lib){
   'use strict';
   var AllexError = lib.Error;
-  function NoServerError(protocol,address,port){
-    var description = 'No server at '+protocol+'://'+address;
+  function NoServerError(protocol,address,port,originalerror){
+    var description = 'No server at '+protocol+'://'+address+
+    (
+      originalerror ? ' ('+originalerror.toString()+')' : ''
+    );
     if(port){
       description += (':'+port);
     }
